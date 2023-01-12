@@ -1,0 +1,273 @@
+<html>
+<style>
+    #chromie {
+        width: 400px;
+        height: 400px;
+        overflow: hidden;
+    }
+</style>
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.0.0/p5.min.js"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+<script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+<div id="top"></div>
+<div id="chromie"></div>
+<div id="bottom"></div>
+<script>
+
+    // Chromie squiggle code
+    new p5(p => {
+        let tokenData = { "tokenId": "6052", "hashes": ["0x3eefbe188aea564042e24f24ca80f65a108cde9b484dcec3fbe690b931c5bb23"] };
+        let numHashes = tokenData.hashes.length;
+        let hashPairs = [];
+        for (let i = 0; i < numHashes; i++) {
+            for (let j = 0; j < 32; j++) {
+                hashPairs.push(tokenData.hashes[i].slice(2 + (j * 2), 4 + (j * 2)));
+            }
+        }
+        let decPairs = hashPairs.map(x => {
+            return parseInt(x, 16);
+        });
+        let seed = parseInt(tokenData.hashes[0].slice(0, 16), 16);
+        let color;
+        let backgroundIndex = 0;
+        let backgroundArray = [255, 225, 200, 175, 150, 125, 100, 75, 50, 25, 0, 25, 50, 75, 100, 125, 150, 175, 200, 225];
+        let index = 0;
+        let ht;
+        let wt = 2;
+        let speed = 1;
+        let segments;
+        let amp = 1;
+        let direction = 1;
+        let loops = false;
+        let startColor = decPairs[29];
+        let reverse = decPairs[30] < 128;
+        let slinky = decPairs[31] < 35;
+        let pipe = decPairs[22] < 32;
+        let bold = decPairs[23] < 15;
+        let segmented = decPairs[24] < 30;
+        let fuzzy = pipe && !slinky;
+
+        p.setup = function () {
+            let portrait = p.windowWidth < p.windowHeight;
+            p.createCanvas(675, 450);
+            var el = document.getElementsByTagName("canvas")[0];
+            el.addEventListener("touchstart", p.mouseClicked, false);
+            p.colorMode(p.HSB, 255);
+            segments = p.map(decPairs[26], 0, 255, 12, 20);
+            ht = p.map(decPairs[27], 0, 255, 3, 4);
+            spread = decPairs[28] < 3 ? 0.5 : p.map(decPairs[28], 0, 255, 5, 50);
+            p.strokeWeight(p.height / 1200);
+        }
+
+        p.draw = function () {
+            color = 0;
+            p.background(backgroundArray[backgroundIndex]);
+            let div = Math.floor(p.map(Math.round(decPairs[24]), 0, 230, 3, 20));
+            let steps = slinky ? 50 : fuzzy ? 1000 : 200;
+            p.translate((p.width / 2) - (p.width / wt / 2), p.height / 2);
+            for (let j = 0; j < segments - 2; j++) {
+                for (let i = 0; i <= steps; i++) {
+                    let t = i / steps;
+                    let x = -145 + p.curvePoint(p.width / segments / wt * j, p.width / segments / wt * (j + 1), p.width / segments / wt * (j + 2), p.width / segments / wt * (j + 3), t);
+                    let y = -30 + p.curvePoint(p.map(decPairs[j], 0, 255, -p.height / ht, p.height / ht) * amp, p.map(decPairs[j + 1], 0, 255, -p.height / ht, p.height / ht) * amp, p.map(decPairs[j + 2], 0, 255, -p.height / ht, p.height / ht) * amp, p.map(decPairs[j + 3], 0, 255, -p.height / ht, p.height / ht) * amp, t);
+                    let hue = reverse ? 255 - (((color / spread) + startColor + index) % 255) : (((color / spread) + startColor) + index) % 255;
+
+                    if (fuzzy) {
+                        p.noStroke();
+                        p.fill(hue, 255, 255, 20);
+                        let fuzzX = x + p.map(rnd(), 0, 1, 0, p.height / 10);
+                        let fuzzY = y + p.map(rnd(), 0, 1, 0, p.height / 10);
+                        if (p.dist(x, y, fuzzX, fuzzY) < height / 11.5) {
+                            p.circle(fuzzX, fuzzY, p.map(rnd(), 0, 1, p.height / 160, p.height / 16));
+                        }
+                    } else {
+                        if (slinky && pipe) {
+                            if (i == 0 || i == steps - 1) {
+                                p.fill(0);
+                            } else {
+                                p.noFill();
+                            }
+                            p.stroke(0);
+                            p.circle(x, y, (height / 7))
+                        }
+
+                        if (slinky) {
+                            if (i == 0 || i == steps - 1) {
+                                p.fill(hue, 255, 255);
+                            } else {
+                                p.noFill();
+                            }
+                            p.stroke(hue, 255, 255);
+                        } else {
+                            p.noStroke();
+                            p.fill(hue, 255, 255);
+                        }
+
+                        p.circle(x, y, bold && !slinky ? p.height / 5 : p.height / 13);
+
+                        if (segmented && !slinky && !bold) {
+                            if (i % div === 0 || i == 0 || i == steps - 1) {
+                                p.noStroke();
+                                p.fill(decPairs[25]);
+                                p.circle(x, y, p.height / 12);
+                            }
+                        }
+                    }
+                    color++;
+                }
+                seed = parseInt(tokenData.hashes[0].slice(0, 16), 16);
+            }
+
+            loops === true ? index = index + speed : index = index;
+            if (p.keyIsDown(p.UP_ARROW)) {
+                if (p.keyIsDown(p.SHIFT)) {
+                    if (speed < 20) {
+                        speed++;
+                    } else {
+                        speed = 20;
+                    }
+                } else {
+                    if (speed < 20) {
+                        speed = speed + 0.1;
+                    } else {
+                        speed = 20;
+                    }
+                }
+            } else if (p.keyIsDown(p.DOWN_ARROW)) {
+                if (p.keyIsDown(p.SHIFT)) {
+                    if (speed > 1) {
+                        speed--;
+                    } else {
+                        speed = 0.1;
+                    }
+                } else {
+                    if (speed > 0.1) {
+                        speed = speed - 0.1;
+                    } else {
+                        speed = 0.1;
+                    }
+                }
+            }
+
+        }
+
+        p.keyPressed = function () {
+            if (p.keyCode === 32) {
+                if (backgroundIndex < backgroundArray.length - 1) {
+                    backgroundIndex++;
+                } else {
+                    backgroundIndex = 0;
+                }
+            }
+        }
+
+        p.mouseClicked = function () {
+            if (loops === false) {
+                loops = true;
+            } else {
+                loops = false;
+            }
+        }
+
+        function rnd() {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            return (((seed < 0) ? ~seed + 1 : seed) % 1000) / 1000;
+        }
+    }, "chromie");
+
+
+    function gradient(s, p, x, y, w, h, c1, c2, xaxis) {
+        p.noFill();
+        if (!xaxis) {
+            // Top to bottom gradient
+            for (let i = y; i <= y + h; i++) {
+                let inter = p.map(i, y, y + h, 0, 1);
+                let c = p.lerpColor(c1, c2, inter);
+                (s ?? p).stroke(c);
+                (s ?? p).line(x, i, x + w, i);
+            }
+        } else {
+            // Left to right gradient
+            for (let i = x; i <= x + w; i++) {
+                let inter = p.map(i, x, x + w, 0, 1);
+                let c = p.lerpColor(c1, c2, inter);
+                (s ?? p).stroke(c);
+                (s ?? p).line(i, y, i, y + h);
+            }
+        }
+    }
+
+    // Tessera top
+    new p5(p => {
+        p.setup = function () {
+            p.noLoop()
+            p.createCanvas(400, 200);
+        };
+
+        p.draw = function () {
+            p.background("#14001b");
+            let qr = qrcode(0, 'L');
+            qr.addData("https://tessera.co/vaults/chromie-squiggle-6052");
+            qr.make();
+            let qrImg = qr.createImgTag(3, 0, "qr code");
+            var tagDiv = p.createDiv();
+            tagDiv.position(55, 55);
+            tagDiv.html(qrImg);
+            p.fill("#bdbcb6");
+            p.textSize(45)
+            p.text("TESSERA", 160, 98)
+            p.textSize(13)
+            p.text("1 of 250 RAES", 165, 123)
+            gradient(null, p, 0, 185, 450, 15, p.color("#abf02a"), p.color("#7f44f8"), true);
+            p.fill("#000")
+            p.textSize(13)
+            p.text("TESSERA TESSERA TESSERA TESSERA TESSERA TESSERA TESSERA", 0, 197)
+        };
+    }, "top");
+
+    // Tessera bottom
+    new p5(p => {
+
+        let masked;
+        p.setup = function () {
+            p.noLoop()
+            p.createCanvas(400, 200);
+
+            // Gradient + circle mask
+            const source = p.createGraphics(80, 80);
+            gradient(source, p, 0, 0, 80, 80, p.color("#444d85"), p.color("#007a3c"), false);
+            const mask = p.createGraphics(80, 80);
+            mask.ellipse(40, 40, 80);
+            (masked = source.get()).mask(mask);
+        };
+
+        p.draw = function () {
+            p.background("#14001b");
+            p.fill("#bdbcb6");
+            p.textSize(20);
+            p.text("Chromie Squiggle by Snowfro", 20, 56)
+            p.textSize(110);
+            p.fill("#5fbd28");
+            p.text("6052", 22, 145);
+            p.image(masked, 295, 65);
+            p.textSize(25)
+            p.fill("#bdbcb6");
+            p.push();
+            p.translate(323, 111);
+            p.rotate(p.radians(7));
+            p.text(p.char(230), 0, 0);
+            p.pop();
+            p.noFill();
+            p.stroke("#bdbcb6");
+            p.strokeWeight(2);
+            p.circle(335, 105, 40)
+            p.stroke("#434443");
+            p.strokeWeight(2);
+            p.circle(335, 105, 80)
+        };
+    }, "bottom");
+</script>
+
+</html>
